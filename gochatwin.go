@@ -6,8 +6,11 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type msg struct {
@@ -19,7 +22,7 @@ type msg struct {
 }
 
 func (message msg) format() string {
-	return fmt.Sprintf("\u001b[32m%s\u001b[0m: \u001b[34m(%s)\u001b[0m %s\n\r", message.sender, message.channelName, message.text)
+	return fmt.Sprintf("\u001b[35m%s  \u001b[32m%s\u001b[0m: \u001b[34m(%s)\u001b[0m %s\n\r", message.timeStamp.Format("20060102150405"), message.sender, message.channelName, message.text)
 }
 
 type channel struct {
@@ -72,11 +75,13 @@ func (chatManager *chatManager) joinChannel(userName string, channelName string)
 }
 
 func (chatManager *chatManager) unJoinChannel(userName string, channelName string) {
-	delete(chatManager.channelList[channelName].subscribed, userName)
-	if chatManager.users[userName].focused == channelName {
-		var userObj = chatManager.users[userName]
-		userObj.focused = "GENERAL"
-		chatManager.users[userName] = userObj
+	if channelName != "GENERAL" {
+		delete(chatManager.channelList[channelName].subscribed, userName)
+		if chatManager.users[userName].focused == channelName {
+			var userObj = chatManager.users[userName]
+			userObj.focused = "GENERAL"
+			chatManager.users[userName] = userObj
+		}
 	}
 }
 
@@ -127,11 +132,19 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 }
 
 func (chatManager *chatManager) run() {
+	logFile, err := os.OpenFile(os.Getenv("LOG_FILE_LOCATION"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 	for {
 		for message := range chatManager.msgStream {
-			fmt.Println(chatManager.users)
+			log.Println(message.format())
 			for user := range chatManager.channelList[message.channelName].subscribed {
-				chatManager.users[user].out <- message
+				if message.reciever == "" || message.reciever == user {
+					chatManager.users[user].out <- message
+				}
 			}
 		}
 	}
@@ -179,7 +192,11 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 }
 
 func main() {
-	server, err := net.Listen("tcp", ":9000")
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	server, err := net.Listen("tcp", ":"+os.Getenv("PORT"))
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
