@@ -25,7 +25,7 @@ func (message msg) format() string {
 type channel struct {
 	name       string
 	msgStream  chan msg
-	subscribed map[string]user
+	subscribed map[string]string
 }
 
 func (channel channel) systemMsg(message string) msg {
@@ -40,25 +40,26 @@ func (channel channel) systemMsg(message string) msg {
 type user struct {
 	name    string
 	out     chan msg
-	focused channel
+	focused string
 }
 
-// A few maps of objects registered with the server. When you set a chatManager up it must have a GENERAL channel added to send system level messages.
+// A few maps of pointers to objects registered with the server. When you set a chatManager up it must have a GENERAL channel added to send system level messages.
+// They are pointers so that the the object under the map can be fully manipulated.
 type chatManager struct {
-	users       map[string]user
-	channelList map[string]channel
+	users       map[string]*user
+	channelList map[string]*channel
 }
 
 func (chatManager *chatManager) makeChannel(channelName string) {
 	if _, ok := chatManager.channelList[channelName]; !ok {
-		chatManager.channelList[channelName] = channel{
+		chatManager.channelList[channelName] = &channel{
 			name:       channelName,
 			msgStream:  make(chan msg, 5),
-			subscribed: make(map[string]user, 0),
+			subscribed: make(map[string]string, 0),
 		}
-		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("New Channel: %s is ready for use.", channelName))
+		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("New Channel: %s is ready for use.", channelName))
 	} else {
-		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("Channel: %s already exists.", channelName))
+		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("Channel: %s already exists.", channelName))
 	}
 }
 
@@ -66,22 +67,16 @@ func (chatManager *chatManager) joinChannel(userName string, channelName string)
 	if _, ok := chatManager.channelList[channelName]; !ok {
 		chatManager.makeChannel(channelName)
 	}
-	joinUser := chatManager.users[userName]
-	joinUser.focused = chatManager.channelList[channelName]
-	if _, ok := chatManager.channelList[channelName].subscribed[userName]; !ok {
-		chatManager.channelList[channelName].subscribed[userName] = chatManager.users[userName]
-	}
-	// reassigning this user gets aroudn an issue with grabbing an non addressable item inside a map. There are two solutions coppying the item or using pointers.
-	chatManager.users[userName] = joinUser
-
+	chatManager.channelList[channelName].subscribed[userName] = userName
+	chatManager.users[userName].focused = channelName
 	chatManager.channelList[channelName].msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("%s has joint the channel. Say hello.", userName))
 }
 
 func (chatManager *chatManager) unJoinChannel(userName string, channelName string) {
 	delete(chatManager.channelList[channelName].subscribed, userName)
-	if chatManager.users[userName].focused.name == channelName {
+	if chatManager.users[userName].focused == channelName {
 		var userObj = chatManager.users[userName]
-		userObj.focused = chatManager.channelList["GENERAL"]
+		userObj.focused = "GENERAL"
 		chatManager.users[userName] = userObj
 	}
 }
@@ -134,11 +129,15 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 
 func (chatManager *chatManager) run() {
 	for {
-		for _, channel := range chatManager.channelList {
-			message := <-channel.msgStream
-			for _, user := range channel.subscribed {
-				user.out <- message
-			}
+		for channel := range chatManager.channelList {
+			go func(channel string) {
+				for message := range chatManager.channelList[channel].msgStream {
+					for _, user := range chatManager.channelList[channel].subscribed {
+						chatManager.users[user].out <- message
+					}
+				}
+			}(channel)
+
 		}
 	}
 }
@@ -157,9 +156,10 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 		userName = scanner.Text()
 		if _, ok := chatManager.users[userName]; !ok {
 
-			chatManager.users[userName] = user{
+			chatManager.users[userName] = &user{
 				name:    userName,
-				focused: chatManager.channelList["GENERAL"],
+				out:     make(chan msg, 5),
+				focused: "GENERAL",
 			}
 
 			io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Thanks for joining us. Type /help for a list of commands. ").format())
@@ -169,12 +169,16 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 		io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Sorry that user name is taken Please choose another one:").format())
 	}
 
+	defer func() {
+		delete(chatManager.users, userName)
+	}()
+
 	chatManager.joinChannel(userName, "GENERAL")
 
 	go func() {
 		for scanner.Scan() {
 			input := scanner.Text()
-			chatManager.users[userName].focused.msgStream <- chatManager.handleInput(input, userName, chatManager.users[userName].focused.name)
+			chatManager.channelList[chatManager.users[userName].focused].msgStream <- chatManager.handleInput(input, userName, chatManager.users[userName].focused)
 		}
 	}()
 
@@ -191,15 +195,17 @@ func main() {
 	defer server.Close()
 
 	chatManager := &chatManager{
-		users:       make(map[string]user, 0),
-		channelList: make(map[string]channel, 0),
+		users:       make(map[string]*user, 0),
+		channelList: make(map[string]*channel, 0),
 	}
 
-	chatManager.channelList["GENERAL"] = channel{
+	chatManager.channelList["GENERAL"] = &channel{
 		name:       "GENERAL",
 		msgStream:  make(chan msg, 5),
-		subscribed: make(map[string]user, 0),
+		subscribed: make(map[string]string, 0),
 	}
+
+	go chatManager.run()
 
 	for {
 		conn, err := server.Accept()
