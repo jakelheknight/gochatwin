@@ -13,16 +13,25 @@ var testMessage1 = msg{
 	timeStamp: time.Now(),
 }
 
-// Need new object for unit testing specific functions.
-var testChatManager = chatManager{
-	users:       make(map[string]*user, 0),
-	channelList: make(map[string]*channel, 0),
-	msgStream:   make(chan msg, 5),
-}
-
-var testUers = user{
+var testUser = user{
 	name:    "Test",
 	focused: "GENERAL",
+}
+
+// Setup channel for testing.
+
+func preChatSetup() *chatManager {
+	testChatManager := &chatManager{
+		users:       make(map[string]*user, 0),
+		channelList: make(map[string]*channel, 0),
+		msgStream:   make(chan msg, 5),
+	}
+	testChatManager.channelList["GENERAL"] = &channel{
+		name:       "GENERAL",
+		subscribed: make(map[string]string, 0),
+	}
+	testChatManager.users["Test"] = &testUser
+	return testChatManager
 }
 
 func TestMsg(t *testing.T) {
@@ -34,7 +43,9 @@ func TestMsg(t *testing.T) {
 		t.Logf("You should have the name of the sender in the formatted string.")
 	}
 }
+
 func TestChatManagerMakeChannel(t *testing.T) {
+	testChatManager := preChatSetup()
 	testChatManager.makeChannel("Test")
 	if _, ok := testChatManager.channelList["Test"]; !ok {
 		t.Logf("Failed to creat cannel when make chanel was called.")
@@ -42,6 +53,14 @@ func TestChatManagerMakeChannel(t *testing.T) {
 }
 
 func TestChatManagerJoin(t *testing.T) {
+	testChatManager := preChatSetup()
 	testChatManager.joinChannel("Test", "NewChannel")
-
+	if _, ok := testChatManager.channelList["Test"]; !ok {
+		t.Logf("Failed to creat cannel when joining a new chanel.")
+	}
+	if usr, ok := testChatManager.users["Test"]; !ok {
+		t.Logf("Failed to put test user on chatmanager.")
+	} else if usr.focused != "Test" {
+		t.Logf("Failed to subscribe to joined channel.")
+	}
 }
