@@ -49,7 +49,7 @@ func (chatManager *chatManager) makeChannel(channelName string) {
 	if _, ok := chatManager.channelList[channelName]; !ok {
 		chatManager.channelList[channelName] = channel{
 			name:      channelName,
-			msgStream: make(chan msg, 0),
+			msgStream: make(chan msg, 5),
 		}
 		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("New Channel: %s is ready for use.", channelName))
 	} else {
@@ -89,11 +89,12 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 	for {
 		scanner.Scan()
 		userName = scanner.Text()
-		if _, ok := chatManager.users[userName]; ok {
+		if _, ok := chatManager.users[userName]; !ok {
 
 			chatManager.users[userName] = user{
-				name:    userName,
-				focused: general,
+				name:       userName,
+				focused:    general,
+				subscribed: make(map[string]channel, 0),
 			}
 
 			io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Thanks for joining us. Type /help for a list of commands. ").format("GENERAL"))
@@ -107,8 +108,10 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 
 	go func() {
 		for scanner.Scan() {
+			input := scanner.Text()
+
 			chatManager.users[userName].focused.msgStream <- msg{
-				text:      scanner.Text(),
+				text:      input,
 				sender:    chatManager.users[userName].name,
 				timeStamp: time.Now(),
 			}
@@ -134,7 +137,10 @@ func main() {
 		channelList: make(map[string]channel, 0),
 	}
 
-	chatManager.makeChannel("GENERAL")
+	chatManager.channelList["GENERAL"] = channel{
+		name:      "GENERAL",
+		msgStream: make(chan msg, 5),
+	}
 
 	for {
 		conn, err := server.Accept()
