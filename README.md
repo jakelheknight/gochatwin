@@ -21,9 +21,9 @@ go install gochatwin
 touch .env
 # This .env file must contain the following
 # PORT=<The desired port number>
-# LOG_FILE_LOCATIN=<The folder you want logs printed to>
+# LOG_FILE_LOCATION=<The folder you want logs printed to>
 
-# Finally just run the built gochat win file.
+# Finally just run the built gochatwin file.
 # To run it in windows):
 gochatwin.exe
 ```
@@ -32,32 +32,32 @@ Once you have it up and running jump to another terminal and telnet into localho
 Your up and running.
 
 ## Features
-I chose to make it do a little more than just a basic chat. I chose to tackle wispers and multiple chat channels. And pretty it up a bit. 
+I chose to make it do a little more than just a basic chat. I chose to tackle whispers and multiple chat channels. And pretty it up a bit. 
 
-* You have the ability to wisper to other users in your focused channel.
+* You have the ability to whisper to other users in your focused channel.
     * It will send from the current channel from you.
-    * If the user is not in the channel or doesnt exist it will do nothing.
+    * If the user is not in the channel or doesn't exist it will do nothing.
 * You can join or unjoin any channel you like
-    * If you join a new channel one will be created and you will subscibe to and focus that channel.
+    * If you join a new channel one will be created and you will subscribed to and focus that channel.
     * You can subscribe to as many channels as you want.
-    * If the channel already exists it will just subscribbe and focus that channel.
+    * If the channel already exists it will just subscribe and focus that channel.
     * If you are already subscribed to the channel you will simply focus the channel.
 * You can unjoin any channel
     * If you are subscribed to the channel you will be removed from the map.
-    * If you are fouced to the channel your focuse will be pointed at the GENERAL channel.
-* When user leaves and comes back he is still subscribed to the previous channels but is focuse on the general.
+    * If you are focused to the channel your focus will be pointed at the GENERAL channel.
+* When user leaves and comes back he is still subscribed to the previous channels but is focus on the general.
 
 ## Unaddressed Issues
-Since this was a limited exercise I didn't go thrugh and build more than the basics above and left off some steps I would do for production code. This is not exhastive.
+Since this was a limited exercise I didn't go through and build more than the basics above and left off some steps I would do for production code. This is not exhaustive.
 
-* No sanitization of anything. For a more production moddel you should never trust the user to behave.
+* No sanitization of anything. For a more production model you should never trust the user to behave.
 * Users input is overwritten as message comes in. If I were to fix this I would make a user client to handle the inputs and such.
-* If you chat too soon while the log file is being opened you can end up missing the first message or two. This could be fixed by opening the log file in the main function and passing it rather than opening it before the chatManatger loop.
-* Ther is no channel clean up. As time goes on you will end up with more and more channels untill you run out of memory. This issue is small but could be solved with an empty check on unjoin that would delete the chat channel when empty.
+* If you chat too soon while the log file is being opened you can end up missing the first message or two. This could be fixed by opening the log file in the main function and passing it rather than opening it before the chatManager loop.
+* There is no channel clean up. As time goes on you will end up with more and more channels until you run out of memory. This issue is small but could be solved with an empty check on unjoin that would delete the chat channel when empty.
 * I would write a few more test if this were going to be production level.
 
-## Creadit
-* I used this awesome toutorial as a startring point. 
+## Citations
+* I used this awesome tutorial as a starting point. 
     * https://www.youtube.com/watch?v=cNxfgXrHeAg
     * https://github.com/golang-book/bootcamp-examples/blob/master/week2/day2/chat-server/main.go
 * I also used godotenv

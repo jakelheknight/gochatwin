@@ -16,7 +16,7 @@ import (
 type msg struct {
 	text        string
 	sender      string
-	reciever    string // Optional sent only to that single reciever when set.
+	receiver    string // Optional sent only to that single receiver when set.
 	channelName string
 	timeStamp   time.Time
 }
@@ -99,7 +99,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 		return msg{
 			text:        strings.Join(commandArr[2:], " "),
 			sender:      userName,
-			reciever:    commandArr[1],
+			receiver:    commandArr[1],
 			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
@@ -108,7 +108,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 		return msg{
 			text:        "You successfully joined a " + commandArr[1],
 			sender:      "SYSTEM",
-			reciever:    userName,
+			receiver:    userName,
 			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
@@ -117,7 +117,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 		return msg{
 			text:        "You successfully unjoined the channel " + commandArr[1],
 			sender:      "SYSTEM",
-			reciever:    userName,
+			receiver:    userName,
 			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
@@ -142,7 +142,7 @@ func (chatManager *chatManager) run() {
 		for message := range chatManager.msgStream {
 			log.Println(message.format())
 			for user := range chatManager.channelList[message.channelName].subscribed {
-				if _, ok := chatManager.users[user]; (message.reciever == "" || message.reciever == user) && ok {
+				if _, ok := chatManager.users[user]; (message.receiver == "" || message.receiver == user) && ok {
 					chatManager.users[user].out <- message
 				}
 			}
@@ -157,8 +157,8 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 	var userName string
 	io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Welcome to GoChatWin an awesome chat server pleas chose a UserName: ").format())
 
-	// Loop so that users will be unique and not overwritte eachother.
-	// Could also postpend a random string of chars at the end but I like this better even if you could use invisable chars this way you could add wisper if you wanted.
+	// Loop so that users will be unique and not overwrite eachother.
+	// Could also postpend a random string of chars at the end but I like this better.
 	for {
 		scanner.Scan()
 		userName = scanner.Text()
