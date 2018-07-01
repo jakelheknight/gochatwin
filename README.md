@@ -54,4 +54,11 @@ Since this was a limited exercise I didn't go thrugh and build more than the bas
 * Users input is overwritten as message comes in. If I were to fix this I would make a user client to handle the inputs and such.
 * If you chat too soon while the log file is being opened you can end up missing the first message or two. This could be fixed by opening the log file in the main function and passing it rather than opening it before the chatManatger loop.
 * Ther is no channel clean up. As time goes on you will end up with more and more channels untill you run out of memory. This issue is small but could be solved with an empty check on unjoin that would delete the chat channel when empty.
+* I would write a few more test if this were going to be production level.
 
+## Creadit
+* I used this awesome toutorial as a startring point. 
+    * https://www.youtube.com/watch?v=cNxfgXrHeAg
+    * https://github.com/golang-book/bootcamp-examples/blob/master/week2/day2/chat-server/main.go
+* I also used godotenv
+    * https://github.com/joho/godotenv
