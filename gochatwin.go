@@ -24,7 +24,6 @@ func (message msg) format() string {
 
 type channel struct {
 	name       string
-	msgStream  chan msg
 	subscribed map[string]string
 }
 
@@ -48,18 +47,18 @@ type user struct {
 type chatManager struct {
 	users       map[string]*user
 	channelList map[string]*channel
+	msgStream   chan msg
 }
 
 func (chatManager *chatManager) makeChannel(channelName string) {
 	if _, ok := chatManager.channelList[channelName]; !ok {
 		chatManager.channelList[channelName] = &channel{
 			name:       channelName,
-			msgStream:  make(chan msg, 5),
 			subscribed: make(map[string]string, 0),
 		}
-		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("New Channel: %s is ready for use.", channelName))
+		chatManager.msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("New Channel: %s is ready for use.", channelName))
 	} else {
-		chatManager.channelList["GENERAL"].msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("Channel: %s already exists.", channelName))
+		chatManager.msgStream <- chatManager.channelList["GENERAL"].systemMsg(fmt.Sprintf("Channel: %s already exists.", channelName))
 	}
 }
 
@@ -69,7 +68,7 @@ func (chatManager *chatManager) joinChannel(userName string, channelName string)
 	}
 	chatManager.channelList[channelName].subscribed[userName] = userName
 	chatManager.users[userName].focused = channelName
-	chatManager.channelList[channelName].msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("%s has joint the channel. Say hello.", userName))
+	chatManager.msgStream <- chatManager.channelList[channelName].systemMsg(fmt.Sprintf("%s has joint the channel. Say hello.", userName))
 }
 
 func (chatManager *chatManager) unJoinChannel(userName string, channelName string) {
@@ -96,7 +95,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 			text:        strings.Join(commandArr[2:], " "),
 			sender:      userName,
 			reciever:    commandArr[1],
-			channelName: "WHISPER",
+			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
 	case commandArr[0] == "/join":
@@ -105,7 +104,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 			text:        "You successfully joined a " + commandArr[1],
 			sender:      "SYSTEM",
 			reciever:    userName,
-			channelName: "WHISPER",
+			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
 	case commandArr[0] == "/unjoin":
@@ -114,7 +113,7 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 			text:        "You successfully unjoined the channel " + commandArr[1],
 			sender:      "SYSTEM",
 			reciever:    userName,
-			channelName: "WHISPER",
+			channelName: "GENERAL",
 			timeStamp:   time.Now(),
 		}
 	default:
@@ -129,15 +128,11 @@ func (chatManager *chatManager) handleInput(input string, userName string, chann
 
 func (chatManager *chatManager) run() {
 	for {
-		for channel := range chatManager.channelList {
-			go func(channel string) {
-				for message := range chatManager.channelList[channel].msgStream {
-					for _, user := range chatManager.channelList[channel].subscribed {
-						chatManager.users[user].out <- message
-					}
-				}
-			}(channel)
-
+		for message := range chatManager.msgStream {
+			fmt.Println(chatManager.users)
+			for user := range chatManager.channelList[message.channelName].subscribed {
+				chatManager.users[user].out <- message
+			}
 		}
 	}
 }
@@ -169,16 +164,12 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 		io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Sorry that user name is taken Please choose another one:").format())
 	}
 
-	defer func() {
-		delete(chatManager.users, userName)
-	}()
-
 	chatManager.joinChannel(userName, "GENERAL")
 
 	go func() {
 		for scanner.Scan() {
 			input := scanner.Text()
-			chatManager.channelList[chatManager.users[userName].focused].msgStream <- chatManager.handleInput(input, userName, chatManager.users[userName].focused)
+			chatManager.msgStream <- chatManager.handleInput(input, userName, chatManager.users[userName].focused)
 		}
 	}()
 
@@ -197,11 +188,11 @@ func main() {
 	chatManager := &chatManager{
 		users:       make(map[string]*user, 0),
 		channelList: make(map[string]*channel, 0),
+		msgStream:   make(chan msg, 5),
 	}
 
 	chatManager.channelList["GENERAL"] = &channel{
 		name:       "GENERAL",
-		msgStream:  make(chan msg, 5),
 		subscribed: make(map[string]string, 0),
 	}
 
