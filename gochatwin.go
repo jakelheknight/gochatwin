@@ -142,7 +142,7 @@ func (chatManager *chatManager) run() {
 		for message := range chatManager.msgStream {
 			log.Println(message.format())
 			for user := range chatManager.channelList[message.channelName].subscribed {
-				if message.reciever == "" || message.reciever == user {
+				if _, ok := chatManager.users[user]; (message.reciever == "" || message.reciever == user) && ok {
 					chatManager.users[user].out <- message
 				}
 			}
@@ -176,6 +176,10 @@ func handleUserConnection(chatManager *chatManager, conn net.Conn) {
 		}
 		io.WriteString(conn, chatManager.channelList["GENERAL"].systemMsg("Sorry that user name is taken Please choose another one:").format())
 	}
+
+	defer func() {
+		delete(chatManager.users, userName)
+	}()
 
 	chatManager.joinChannel(userName, "GENERAL")
 
