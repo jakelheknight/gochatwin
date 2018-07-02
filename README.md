@@ -60,5 +60,5 @@ Since this was a limited exercise I didn't go through and build more than the ba
 * I used this awesome tutorial as a starting point. 
     * https://www.youtube.com/watch?v=cNxfgXrHeAg
     * https://github.com/golang-book/bootcamp-examples/blob/master/week2/day2/chat-server/main.go
-* I also used godotenv
+* I also used godotnv
     * https://github.com/joho/godotenv
